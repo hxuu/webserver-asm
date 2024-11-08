@@ -9,6 +9,9 @@ SYS_exit = 60
 AF_INET = 2
 SOCK_STREAM = 1
 
+STDOUT = 1
+STDERR = 2
+
 macro socket domain, type, protocol {
     mov rax, SYS_socket
     mov rdi, domain
@@ -17,11 +20,11 @@ macro socket domain, type, protocol {
     syscall
 }
 
-macro write fd, buf, count {
+macro write fd, start, start_len {
     mov rax, SYS_write
     mov rdi, fd
-    mov rsi, buf
-    mov rdx, count
+    mov rsi, start
+    mov rdx, start_len
     syscall
 }
 
@@ -34,10 +37,25 @@ macro exit status {
 
 segment readable executable
 main:
-    write 1, buf, count
+    write STDOUT, start, start_len
     socket AF_INET, SOCK_STREAM, 0 ;; 0 in protocol because TCP is the only in SOCK_STREAM
+    ;socket 444, 2000, 0 ;; 0 in protocol because TCP is the only in SOCK_STREAM
+    cmp rax, 0
+    jl fail
+    write STDOUT, ok, ok_len
+    mov dword [socketfd], eax ;; because rax holds the return value from socket syscall
     exit 0
 
-segment readable
-    buf db "Start Web Server...", 10
-    count = $ - buf
+
+fail:
+    write STDERR, error, error_len
+    exit 1
+
+segment readable writeable
+    socketfd dw 0
+    start db "INFO: Starting Web Server", 10
+    start_len = $ - start
+    error db "INFO: ERROR!", 10
+    error_len = $ - error
+    ok db "INFO: OK!", 10
+    ok_len = $ - ok
