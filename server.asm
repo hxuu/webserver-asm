@@ -110,12 +110,12 @@ next_request:
 
     mov qword [clifd], rax
     write [clifd], response, response_len
+    close [clifd]
     jmp next_request
 
     write STDOUT, ok, ok_len
 
     close [sockfd]
-    close [clifd]
 
     exit 0
 
