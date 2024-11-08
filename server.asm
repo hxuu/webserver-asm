@@ -6,6 +6,9 @@ SYS_socket = 41
 SYS_write = 1
 SYS_exit = 60
 SYS_bind = 49
+SYS_close = 3
+SYS_listen = 50
+SYS_accept = 43
 
 AF_INET = 2
 PORT = 9999
@@ -33,6 +36,12 @@ macro write fd, start, start_len {
     syscall
 }
 
+macro close fd {
+    mov rax, SYS_close
+    mov rdi, fd
+    syscall
+}
+
 ;; [[noreturn]] void _exit(int status);
 macro exit status {
     mov rax, SYS_exit
@@ -49,6 +58,20 @@ macro bind sockfd, addr, addrlen {
     syscall
 }
 
+macro listen sockfd, backlog {
+    mov rax, SYS_listen
+    mov rdi, sockfd
+    mov rsi, backlog
+    syscall
+}
+
+macro accept stockfd, addr, addrlen {
+    mov rax, SYS_accept
+    mov rdi, stockfd
+    mov rsi, addr
+    mov rdx, addrlen
+    syscall
+}
 
 segment readable executable
 main:
@@ -75,22 +98,50 @@ main:
     jl fail
     write STDOUT, ok, ok_len
 
+    write STDOUT, listen_msg, listen_msg_len
+    listen [sockfd], 3
+    cmp rax, 0
+    jl fail
+
+next_request:
+    accept [sockfd], cliaddr.sin_family, sizeof_cliaddr
+    cmp rax, 0
+    jl error
+
+    mov qword [clifd], rax
+    write [clifd], response, response_len
+    jmp next_request
+
+    write STDOUT, ok, ok_len
+
+    close [sockfd]
+    close [clifd]
+
     exit 0
 
 
 fail:
     write STDERR, error, error_len
+    close [clifd]
+    close [sockfd]
     exit 1
 
 
+struc sockaddr_in {
+    .sin_family dw 0
+    .sin_port   dw 0
+    .sin_addr   dd 0
+    .sin_zero   dq 0
+}
+
 segment readable writeable
-    sockfd dq 0
+    sockfd dq -1
+    clifd  dq -1
     ;; creating the sockaddr_in structure
-    servaddr.sin_family dw 0
-    servaddr.sin_port   dw 0
-    servaddr.sin_addr   dd 0
-    servaddr.sin_zero   dq 0
+    servaddr sockaddr_in
     sizeof_servaddr = $ - servaddr.sin_family
+    cliaddr  sockaddr_in
+    sizeof_cliaddr dd sizeof_servaddr
 
     start db "INFO: Starting Web Server", 10
     start_len = $ - start
@@ -99,7 +150,16 @@ segment readable writeable
     error db "INFO: ERROR!", 10
     error_len = $ - error
 
+    response db "HTTP/1.1 200 OK", 13,10
+             db "Content-Type: text/html", 13,10
+             db "Connection: close", 13,10
+             db 13,10
+             db "<h1>Hello from server!<h1>", 13,10
+    response_len = $ - response
+
     create_socket_msg db "INFO: Creating Socket...", 10
     create_socket_msg_len = $ - create_socket_msg
     bind_msg db "INFO: Binding Socket...", 10
     bind_msg_len = $ - bind_msg
+    listen_msg db "INFO: Listening To New Requests...", 10
+    listen_msg_len = $ - listen_msg
