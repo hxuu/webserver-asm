@@ -31,4 +31,11 @@ This section defines what is due.
 > Let's do that by translating the C code into a fasm macro, which is a reusable
 block of code just like a function, but instead, pastes the content of it in compile time.
 
-2.
+2. bind the socket to and address and a port []
+
+> idk how to do that (YET).  Let's use chatgpt to guide us into learning the stuff
+we need to do that.
+
+1. setup the socket\_in structure in memory []
+2. prepare the bind syscall (easy) []
+3. do whatever you gotta do~
